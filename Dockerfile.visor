@@ -1,0 +1,57 @@
+FROM python:3.11-slim-trixie
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV HOME=/data
+ENV ADB_DATA_DIR=/data
+ENV NOVNC_VERSION=1.6.0
+
+RUN set -eux; \
+    echo "deb http://deb.debian.org/debian trixie-backports main contrib non-free-firmware" > /etc/apt/sources.list.d/trixie-backports.list; \
+    apt-get update
+
+# Base mínima para el visor:
+# - adb: comunicación Android
+# - curl: requerido por el postinst de scrcpy para descargar scrcpy-server
+# - xvfb/x11vnc: pantalla virtual + VNC
+# - no instalamos novnc/websockify de Debian para evitar Node y muchas dependencias extra
+# - no instalamos fluxbox: scrcpy se lanza fullscreen/borderless sobre Xvfb
+RUN set -eux; \
+    apt-get install -y --no-install-recommends \
+        adb \
+        curl \
+        tar \
+        gzip \
+        usbutils \
+        iproute2 \
+        procps \
+        ca-certificates \
+        xvfb \
+        x11vnc
+
+# scrcpy está en trixie-backports/contrib.
+RUN set -eux; \
+    apt-get install -y -t trixie-backports --no-install-recommends scrcpy; \
+    scrcpy --version; \
+    find /usr -name 'scrcpy-server*' -type f -print; \
+    rm -rf /var/lib/apt/lists/*
+
+# noVNC como estático desde GitHub + websockify por pip.
+# Esto reduce bastante la imagen y deja más cacheables las capas.
+RUN set -eux; \
+    mkdir -p /app/novnc-web; \
+    curl -fsSL "https://github.com/novnc/noVNC/archive/refs/tags/v${NOVNC_VERSION}.tar.gz" -o /tmp/novnc.tar.gz; \
+    tar -xzf /tmp/novnc.tar.gz -C /tmp; \
+    cp -a "/tmp/noVNC-${NOVNC_VERSION}/." /app/novnc-web/; \
+    rm -rf /tmp/novnc.tar.gz "/tmp/noVNC-${NOVNC_VERSION}"; \
+    printf '%s\n' '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Visor ADB</title><meta http-equiv="refresh" content="0; url=/vnc.html?autoconnect=true&resize=scale&reconnect=true"></head><body style="background:#05070b;color:#e8f0ff;font-family:system-ui;display:grid;place-items:center;height:100vh;margin:0"><main style="text-align:center"><h1>Visor ADB</h1><p>Abriendo noVNC...</p><p><a style="color:#7db5ff" href="/vnc.html?autoconnect=true&resize=scale&reconnect=true">Abrir visor</a></p></main><script>location.replace("/vnc.html?autoconnect=true&resize=scale&reconnect=true");</script></body></html>' > /app/novnc-web/index.html; \
+    printf "ok" > /app/novnc-web/health
+
+WORKDIR /app
+RUN pip install --no-cache-dir Flask==3.0.3 gunicorn==22.0.0 websockify==0.12.0
+
+COPY visor_app.py /app/visor_app.py
+
+EXPOSE 20010 19999
+
+CMD ["python", "/app/visor_app.py"]

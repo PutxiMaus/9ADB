@@ -1,0 +1,55 @@
+services:
+  adb:
+    build: .
+    container_name: adb
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    environment:
+      - PORT=20009
+      - ADB_DATA_DIR=/data
+      - HOME=/data
+      - PYTHONUNBUFFERED=1
+      - ADMIN_PASSWORD=9adb-admin
+      - VISOR_API_URL=http://127.0.0.1:19999
+      - VISOR_PUBLIC_PORT=20010
+    volumes:
+      - /srv/data/adb:/data
+      - /dev/bus/usb:/dev/bus/usb
+    labels:
+      - "homepage.name=ADB"
+      - "homepage.port=20009"
+      - "docker-manager.name=ADB"
+      - "docker-manager.port=20009"
+      - "watchdog.enabled=true"
+      - "watchdog.name=ADB"
+      - "watchdog.port=20009"
+      - "watchdog.path=/health"
+
+  adb-visor:
+    image: ghcr.io/putximaus/9adb:visor
+    container_name: adb-visor
+    restart: unless-stopped
+    network_mode: host
+    privileged: true
+    environment:
+      - ADB_DATA_DIR=/data
+      - HOME=/data
+      - PYTHONUNBUFFERED=1
+      - VISOR_API_PORT=19999
+      - VISOR_PUBLIC_PORT=20010
+      - VISOR_DISPLAY=:99
+      - VISOR_SCREEN=800x1280x24
+      - VISOR_VNC_PORT=5901
+    volumes:
+      - /srv/data/adb:/data
+      - /dev/bus/usb:/dev/bus/usb
+    labels:
+      - "homepage.name=Visor ADB"
+      - "homepage.port=20010"
+      - "docker-manager.name=Visor ADB"
+      - "docker-manager.port=20010"
+      - "watchdog.enabled=true"
+      - "watchdog.name=Visor ADB"
+      - "watchdog.port=20010"
+      - "watchdog.path=/health"

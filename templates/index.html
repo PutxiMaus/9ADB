@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ADB-SERVER</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body data-admin="{{ 1 if admin_mode else 0 }}">
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar">
+      <button class="collapse-toggle" id="collapseButton" type="button" title="Plegar/desplegar menú">☰</button>
+
+      <nav class="tabs" aria-label="Pestañas">
+        <button class="tab-button active" type="button" data-tab="dashboard" title="Inicio"><span class="tab-icon">⌂</span><span class="tab-label">Inicio</span></button>
+        <button class="tab-button" type="button" data-tab="screen" title="Pantalla"><span class="tab-icon">◫</span><span class="tab-label">Pantalla</span></button>
+        <button class="tab-button" type="button" data-tab="commands" title="Comandos"><span class="tab-icon">⌁</span><span class="tab-label">Comandos</span></button>
+        <button class="tab-button" type="button" data-tab="network" title="Red y recientes"><span class="tab-icon">◎</span><span class="tab-label">Red y recientes</span></button>
+        <button class="tab-button" type="button" data-tab="apps" title="Apps"><span class="tab-icon">▦</span><span class="tab-label">Apps</span></button>
+        <button class="tab-button" type="button" data-tab="files" title="Archivos"><span class="tab-icon">▤</span><span class="tab-label">Archivos</span></button>
+        <button class="tab-button" type="button" data-tab="scripts" title="Scripts"><span class="tab-icon">▣</span><span class="tab-label">Scripts</span></button>
+        <button class="tab-button" type="button" data-tab="fastboot" title="Bootloader"><span class="tab-icon">⚡</span><span class="tab-label">Bootloader</span></button>
+        <button class="tab-button" type="button" data-tab="agent" title="Agente"><span class="tab-icon">⇄</span><span class="tab-label">Agente</span></button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="sidebar-refresh" id="globalRefresh" type="button"><span>↻</span><span class="refresh-label">Actualizar</span></button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h2 id="pageTitle">Inicio</h2>
+          <p id="pageSubtitle">Conexión rápida y dispositivo activo.</p>
+        </div>
+        <span class="health-dot" id="healthDot" title="Estado"></span>
+      </header>
+<section class="tab-panel active" id="tab-dashboard">
+        <div class="tab-layout">
+          <div class="tab-content cards-grid dashboard-grid">
+            <article class="card active-card span-2">
+              <h3>Dispositivo activo</h3>
+              <div class="dashboard-top-grid">
+                <section class="mini-card">
+                  <div class="active-device" id="activeDeviceBox"><span class="empty">Sin dispositivo activo</span></div>
+                  <div class="button-row compact-buttons">
+                    <button id="disconnectActive" type="button" class="secondary danger-soft">Desconectar</button>
+                    <button id="restartAdb" type="button" class="secondary">Reiniciar ADB</button>
+                  </div>
+                </section>
+
+                <section class="mini-card">
+                  <h4>ADB Wi‑Fi desde USB</h4>
+                  <div class="inline-form">
+                    <input id="tcpipPort" type="number" value="5555" min="1" max="65535" aria-label="Puerto tcpip">
+                    <button id="prepareWifi" type="button" class="primary">Preparar Wi‑Fi</button>
+                  </div>
+                  <p class="hint">Conecta el móvil por USB, acepta RSA y pulsa.</p>
+                </section>
+
+                <section class="mini-card">
+                  <h4>Conexión manual</h4>
+                  <div class="inline-form wide">
+                    <input id="manualHost" placeholder="192.168.1.5">
+                    <input id="manualPort" type="number" value="5555" min="1" max="65535">
+                    <button id="manualConnect" type="button" class="primary">Conectar</button>
+                  </div>
+                </section>
+              </div>
+            </article>
+
+            <article class="card span-2">
+              <h3>Emparejamiento Android 11+</h3>
+              <div class="inline-form four">
+                <input id="pairHost" placeholder="IP">
+                <input id="pairPort" type="number" placeholder="Puerto pairing">
+                <input id="pairCode" placeholder="Código">
+                <button id="pairButton" type="button" class="secondary">Emparejar</button>
+              </div>
+            </article>
+
+            <article class="card span-2">
+              <h3>Crear perfil</h3>
+              <form id="profileForm" class="profile-form">
+                <label>Nombre<input id="profileName" required placeholder="Mi móvil"></label>
+                <label>IP<input id="profileIp" placeholder="192.168.1.5"></label>
+                <label>Puerto<input id="profilePort" type="number" value="5555"></label>
+                <label>MAC<input id="profileMac" placeholder="aa:bb:cc:dd:ee:ff"></label>
+                <label class="wide-field">Notas<input id="profileNotes" placeholder="Opcional"></label>
+                <div class="button-row wide-field no-margin">
+                  <button class="primary" type="submit">Guardar perfil</button>
+                  <button id="cancelProfileEdit" class="secondary" type="button">Limpiar</button>
+                </div>
+              </form>
+            </article>
+
+            <article class="card span-2">
+              <h3>Perfiles guardados</h3>
+              <div id="profilesList" class="cards-list profile-cards"></div>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Inicio</div><pre id="log-dashboard"></pre></aside>
+        </div>
+      </section>
+<section class="tab-panel" id="tab-screen">
+        <div class="tab-layout">
+          <div class="tab-content screen-content">
+            <article class="card screen-control-card">
+              <div class="screen-head">
+                <div>
+                  <h3>Scrcpy real</h3>
+                  <p class="hint" id="screenStatusText">Visor ADB separado en puerto 20010.</p>
+                </div>
+                <div class="screen-actions">
+                  <button id="scrcpyStartButton" type="button" class="primary">Iniciar scrcpy</button>
+                  <button id="scrcpyOpenButton" type="button" class="secondary">Abrir visor ADB</button>
+                  <button id="scrcpyStopButton" type="button" class="danger-soft">Detener scrcpy</button>
+                </div>
+              </div>
+              <p class="hint">El servicio principal controla scrcpy. El vídeo se ve en el servicio separado <strong>Visor ADB</strong> del puerto 20010.</p>
+            </article>
+
+            <article class="card scrcpy-settings-card">
+              <div class="settings-head">
+                <div>
+                  <h3>Ajustes scrcpy</h3>
+                  <p class="hint">Valores bajos van mejor en servidor pequeño.</p>
+                </div>
+                <button id="scrcpySaveSettings" type="button" class="secondary">Guardar ajustes</button>
+              </div>
+              <div class="scrcpy-settings-grid">
+                <label>Resolución
+                  <select id="scrcpyMaxSize">
+                    <option value="480">480</option>
+                    <option value="720">720</option>
+                    <option value="800">800 recomendado</option>
+                    <option value="1024">1024</option>
+                    <option value="1280">1280</option>
+                  </select>
+                </label>
+                <label>FPS
+                  <select id="scrcpyMaxFps">
+                    <option value="15">15</option>
+                    <option value="20">20 recomendado</option>
+                    <option value="30">30</option>
+                    <option value="60">60</option>
+                  </select>
+                </label>
+                <label>Bitrate
+                  <select id="scrcpyBitrate">
+                    <option value="1M">1M</option>
+                    <option value="2M">2M</option>
+                    <option value="4M">4M recomendado</option>
+                    <option value="6M">6M</option>
+                    <option value="8M">8M</option>
+                    <option value="12M">12M</option>
+                  </select>
+                </label>
+                <label class="toggle-line"><input id="scrcpyAudio" type="checkbox"> Audio</label>
+                <label class="toggle-line"><input id="scrcpyControl" type="checkbox" checked> Controlar móvil</label>
+                <label class="toggle-line"><input id="scrcpyStayAwake" type="checkbox" checked> Mantener despierto</label>
+                <label class="toggle-line"><input id="scrcpyTurnOff" type="checkbox"> Apagar pantalla del móvil</label>
+                <label class="toggle-line"><input id="scrcpyFullscreen" type="checkbox" checked> Pantalla completa</label>
+              </div>
+            </article>
+<details class="advanced-fallback">
+              <summary>Modo ligero de emergencia</summary>
+              <article class="card screen-control-card light-fallback-card">
+                <div class="screen-head">
+                  <div>
+                    <h3>Pantalla ligera</h3>
+                    <p class="hint">Fallback por capturas ADB. Úsalo solo si scrcpy/noVNC falla.</p>
+                  </div>
+                  <div class="screen-actions">
+                    <button id="screenLightButton" type="button" class="secondary">Modo ligero</button>
+                    <button id="screenRefreshButton" type="button" class="secondary">Actualizar imagen</button>
+                    <button id="screenStopButton" type="button" class="danger-soft">Cerrar pantalla</button>
+                  </div>
+                </div>
+                <div class="inline-form screen-options">
+                  <label>Refresco
+                    <select id="screenInterval">
+                      <option value="700">Rápido · 0.7s</option>
+                      <option value="1200" selected>Normal · 1.2s</option>
+                      <option value="2000">Suave · 2s</option>
+                      <option value="3500">Lento · 3.5s</option>
+                    </select>
+                  </label>
+                </div>
+              </article>
+
+              <article class="card screen-view-card light-fallback-card">
+                <div class="screen-frame-wrap" id="screenFrameWrap">
+                  <div class="screen-placeholder" id="screenPlaceholder">
+                    <strong>Modo ligero apagado</strong>
+                    <span>Activa un dispositivo y pulsa “Modo ligero”.</span>
+                  </div>
+                  <img id="screenImage" class="screen-image" alt="Pantalla Android" draggable="false">
+                </div>
+              </article>
+            </details>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Pantalla</div><pre id="log-screen"></pre></aside>
+        </div>
+      </section>
+<section class="tab-panel" id="tab-commands">
+        <div class="tab-layout">
+          <div class="tab-content command-sections">
+            <article class="card">
+              <h3>Control y sistema</h3>
+              <div id="controlCommands" class="command-grid"></div>
+              <div class="command-grid command-subgrid">
+                <button id="infoButton" type="button" class="secondary">Info</button>
+                <button id="logcatButton" type="button" class="secondary">Logcat</button>
+                <button id="rebootButton" type="button" class="danger">Reboot</button>
+                <button id="clearAllCacheButton" type="button" class="danger">Borrar caché</button>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>Abrir apps</h3>
+              <div id="appCommands" class="command-grid"></div>
+            </article>
+
+            <article class="card">
+              <h3>Otros</h3>
+              <div class="command-grid">
+                <button id="installApkButton" type="button" class="secondary">Install APK</button>
+                <button id="wallpaperButton" type="button" class="secondary">Wallpaper</button>
+                <button id="openLinkButton" type="button" class="secondary">OpenLink</button>
+                <button id="screenshotButton" type="button" class="secondary">Screenshot</button>
+                <button id="screenshotPullButton" type="button" class="secondary">Screenshot & pull</button>
+                <button id="screenrecordStartButton" type="button" class="secondary">Start screenrecord</button>
+                <button id="screenrecordStopOnlyButton" type="button" class="secondary">Stop screenrecord</button>
+                <button id="screenrecordStopButton" type="button" class="secondary">Stop screenrecord & pull</button>
+              </div>
+              <input id="apkFile" class="hidden-file" type="file" accept=".apk,application/vnd.android.package-archive">
+              <input id="wallpaperFile" class="hidden-file" type="file" accept="image/*">
+            </article>
+
+            <article class="card output-card">
+              <h3>Salida</h3>
+              <pre id="commandOutput" class="output-box">Sin salida todavía.</pre>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Comandos</div><pre id="log-commands"></pre></aside>
+        </div>
+      </section>
+<section class="tab-panel" id="tab-network">
+        <div class="tab-layout">
+          <div class="tab-content network-stack">
+            <article class="card">
+              <div class="network-head">
+                <div>
+                  <h3>Red</h3>
+                  <p class="hint" id="networkSummary">Escanea la LAN útil y marca ADB por color.</p>
+                </div>
+                <button id="scanNetwork" type="button" class="primary">Escanear red</button>
+              </div>
+              <div class="legend compact-legend">
+                <span><i class="legend-dot active"></i>Activo</span>
+                <span><i class="legend-dot connected"></i>ADB conectado</span>
+                <span><i class="legend-dot open"></i>ADB abierto</span>
+                <span><i class="legend-dot profile"></i>Perfil</span>
+                <span><i class="legend-dot seen"></i>Detectado</span>
+              </div>
+              <div id="networkList" class="network-list"></div>
+            </article>
+<article class="card">
+              <h3>Conectados ahora</h3>
+              <div id="devicesList" class="cards-list"></div>
+            </article>
+
+            <article class="card">
+              <h3>Recientes</h3>
+              <div id="recentDevicesList" class="cards-list"></div>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Red y recientes</div><pre id="log-network"></pre></aside>
+        </div>
+      </section>
+<section class="tab-panel" id="tab-apps">
+        <div class="tab-layout">
+          <div class="tab-content apps-content">
+            <article class="card apps-toolbar-card">
+              <div class="apps-toolbar">
+                <div>
+                  <h3>Apps instaladas</h3>
+                  <p class="hint" id="appsSummary">Selecciona un dispositivo activo y carga sus apps.</p>
+                </div>
+                <div class="apps-controls">
+                  <select id="appsKind" aria-label="Tipo de apps">
+                    <option value="user" selected>Usuario</option>
+                    <option value="system">Sistema</option>
+                    <option value="all">Todas</option>
+                  </select>
+                  <input id="appsSearch" placeholder="Filtrar paquete/app">
+                  <button id="appsRefresh" type="button" class="primary">Cargar apps</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="card apps-list-card">
+              <div id="appsList" class="apps-list">
+                <p class="hint">Pulsa “Cargar apps” para ver las apps del Android activo.</p>
+              </div>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Apps</div><pre id="log-apps"></pre></aside>
+        </div>
+      </section>
+<section class="tab-panel" id="tab-files">
+        <div class="tab-layout">
+          <div class="tab-content files-content android-only-files">
+            <article class="card files-head-card">
+              <div class="files-head">
+                <div>
+                  <h3>Explorador del dispositivo</h3>
+                  <p class="hint" id="filesSummary">Sube y descarga archivos del Android activo. El servidor solo usa temporales.</p>
+                </div>
+                <div class="files-actions-top">
+                  <button id="filesRefresh" type="button" class="primary">Actualizar</button>
+                  <button id="androidUploadButton" type="button" class="secondary">Subir archivo</button>
+                  <input id="androidUploadFile" class="hidden-file" type="file">
+                </div>
+              </div>
+            </article>
+
+            <article class="card files-panel-card android-explorer-card">
+              <div class="files-panel-head">
+                <div>
+                  <h3>Android</h3>
+                  <p class="hint" id="androidPathLabel">/sdcard</p>
+                </div>
+                <div class="button-row no-margin">
+                  <button id="androidUpButton" type="button" class="secondary icon-button" title="Directorio superior">↑</button>
+                  <button id="androidMkdirButton" type="button" class="secondary">Nueva carpeta</button>
+                </div>
+              </div>
+
+              <div class="path-shortcuts">
+                <button type="button" class="chip" data-android-shortcut="/sdcard">Inicio</button>
+                <button type="button" class="chip" data-android-shortcut="/sdcard/Download">Download</button>
+                <button type="button" class="chip" data-android-shortcut="/sdcard/DCIM">DCIM</button>
+                <button type="button" class="chip" data-android-shortcut="/sdcard/Pictures">Pictures</button>
+                <button type="button" class="chip" data-android-shortcut="/sdcard/Movies">Movies</button>
+                <button type="button" class="chip" data-android-shortcut="/data/local/tmp">tmp</button>
+              </div>
+
+              <div class="inline-form path-form">
+                <input id="androidPathInput" value="/sdcard" aria-label="Ruta Android">
+                <button id="androidGoButton" type="button" class="secondary">Ir</button>
+              </div>
+
+              <div id="androidFilesList" class="file-list android-file-list">
+                <p class="hint">Pulsa “Actualizar” para cargar el explorador del Android activo.</p>
+              </div>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Archivos</div><pre id="log-files"></pre></aside>
+        </div>
+      </section>
+<section class="tab-panel" id="tab-scripts">
+        <div class="tab-layout">
+          <div class="tab-content scripts-content">
+            <article class="card scripts-editor-card">
+              <div class="scripts-head">
+                <div>
+                  <h3>Scripts personalizados</h3>
+                  <p class="hint">Cada línea es un comando ADB sin escribir <code>adb -s</code>. Ejemplo: <code>shell input keyevent 3</code></p>
+                </div>
+                <div class="button-row no-margin">
+                  <button id="scriptsRefresh" type="button" class="secondary">Actualizar</button>
+                  <button id="scriptNewButton" type="button" class="secondary">Nuevo</button>
+                </div>
+              </div>
+              <form id="scriptForm" class="script-form">
+                <label>Nombre
+                  <input id="scriptName" type="text" placeholder="Abrir mi app" autocomplete="off">
+                </label>
+                <label>Descripción
+                  <input id="scriptDescription" type="text" placeholder="Opcional" autocomplete="off">
+                </label>
+                <label class="script-lines-label">Comandos
+                  <textarea id="scriptCommands" spellcheck="false" placeholder="shell input keyevent 3&#10;shell input text hola&#10;shell am start -a android.intent.action.VIEW -d https://example.com"></textarea>
+                </label>
+                <div class="button-row">
+                  <button id="scriptSaveButton" type="submit" class="primary">Guardar script</button>
+                  <button id="scriptCancelButton" type="button" class="secondary">Cancelar edición</button>
+                </div>
+              </form>
+            </article>
+
+
+            <article class="card scripts-list-card">
+              <div class="scripts-head">
+                <div>
+                  <h3>Guardados</h3>
+                  <p id="scriptsSummary" class="hint">Cargando scripts...</p>
+                </div>
+              </div>
+              <div id="scriptsList" class="scripts-list">
+                <p class="hint">Pulsa “Actualizar” para cargar scripts.</p>
+              </div>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Scripts</div><pre id="log-scripts"></pre></aside>
+        </div>
+      </section>
+<section class="tab-panel" id="tab-fastboot">
+        <div class="tab-layout">
+          <div class="tab-content fastboot-grid">
+            <article class="card span-2">
+              <div class="fastboot-head">
+                <div>
+                  <h3>Bootloader / Fastboot</h3>
+                  <p class="hint">Modo bootloader para recuperar, consultar y flashear imágenes. Usa USB siempre que puedas.</p>
+                </div>
+                <button id="fastbootRefresh" type="button" class="secondary">Actualizar fastboot</button>
+              </div>
+              <div class="inline-form fastboot-device-row">
+                <label>Dispositivo fastboot
+                  <select id="fastbootSerial">
+                    <option value="">Sin dispositivos</option>
+                  </select>
+                </label>
+                <button id="fastbootRebootBootloader" type="button" class="primary">ADB → Bootloader</button>
+                <button id="fastbootRebootSystem" type="button" class="secondary">Fastboot → Android</button>
+                <button id="fastbootRebootBootloader2" type="button" class="secondary">Reiniciar bootloader</button>
+              </div>
+              <div id="fastbootDevices" class="fastboot-devices hint">Pulsa Actualizar fastboot.</div>
+            </article>
+
+            <article class="card">
+              <h3>Información</h3>
+              <div class="command-grid">
+                <button id="fastbootGetAll" type="button" class="secondary">getvar all</button>
+                <button id="fastbootOemInfo" type="button" class="secondary">Estado bootloader</button>
+                <button id="fastbootContinue" type="button" class="secondary">continue</button>
+              </div>
+              <div class="inline-form">
+                <input id="fastbootVar" placeholder="Variable, ej: current-slot">
+                <button id="fastbootGetVar" type="button" class="secondary">getvar</button>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>Slots A/B</h3>
+              <p class="hint">Cambiar slot puede impedir arrancar si el otro slot no está bien. Requiere confirmación.</p>
+              <div class="command-grid">
+                <button id="fastbootSlotA" type="button" class="danger-soft">Activar slot A</button>
+                <button id="fastbootSlotB" type="button" class="danger-soft">Activar slot B</button>
+              </div>
+            </article>
+
+            <article class="card">
+              <h3>Boot temporal</h3>
+              <p class="hint">Ejecuta una imagen sin flashearla permanentemente: <code>fastboot boot imagen.img</code>.</p>
+              <button id="fastbootBootImageButton" type="button" class="secondary">Elegir imagen y boot</button>
+              <input id="fastbootBootImageFile" class="hidden-file" type="file" accept=".img,application/octet-stream">
+            </article>
+
+            <article class="card">
+              <h3>Flash imagen</h3>
+              <p class="hint">Zona delicada. Elige partición e imagen. Para ejecutar debes escribir FLASH.</p>
+              <div class="inline-form">
+                <select id="fastbootFlashPartition">
+                  <option value="boot">boot</option>
+                  <option value="recovery">recovery</option>
+                  <option value="vendor_boot">vendor_boot</option>
+                  <option value="init_boot">init_boot</option>
+                  <option value="dtbo">dtbo</option>
+                  <option value="vbmeta">vbmeta</option>
+                </select>
+                <input id="fastbootFlashConfirm" placeholder="Escribe FLASH">
+                <button id="fastbootFlashImageButton" type="button" class="danger">Elegir imagen y flashear</button>
+              </div>
+              <input id="fastbootFlashImageFile" class="hidden-file" type="file" accept=".img,application/octet-stream">
+            </article>
+
+            <article class="card">
+              <h3>Comando manual</h3>
+              <p class="hint">Escribe argumentos sin la palabra fastboot. Ejemplo: <code>getvar product</code>.</p>
+              <div class="inline-form">
+                <input id="fastbootCustomArgs" placeholder="getvar product">
+                <input id="fastbootCustomConfirm" placeholder="DANGER si es peligroso">
+                <button id="fastbootCustomRun" type="button" class="secondary">Ejecutar</button>
+              </div>
+            </article>
+
+            <details class="advanced-fallback fastboot-danger-zone">
+              <summary>Zona peligrosa: unlock / lock / erase</summary>
+              <article class="card">
+                <h3>Bootloader lock / unlock</h3>
+                <p class="hint">Puede borrar datos o dejar el móvil sin arrancar si no sabes lo que haces. Confirmación requerida: <strong>BORRAR DATOS</strong>.</p>
+                <div class="inline-form">
+                  <input id="fastbootDangerConfirm" placeholder="BORRAR DATOS">
+                  <button id="fastbootUnlock" type="button" class="danger">flashing unlock</button>
+                  <button id="fastbootLock" type="button" class="danger">flashing lock</button>
+                  <button id="fastbootOemUnlock" type="button" class="danger-soft">oem unlock</button>
+                </div>
+              </article>
+              <article class="card">
+                <h3>Erase partición</h3>
+                <p class="hint">Borra una partición. Confirmación requerida: <strong>ERASE</strong>.</p>
+                <div class="inline-form">
+                  <input id="fastbootErasePartition" placeholder="cache">
+                  <input id="fastbootEraseConfirm" placeholder="ERASE">
+                  <button id="fastbootEraseButton" type="button" class="danger">Borrar partición</button>
+                </div>
+              </article>
+            </details>
+
+            <article class="card output-card span-2">
+              <h3>Salida fastboot</h3>
+              <pre id="fastbootOutput" class="output-box">Sin salida todavía.</pre>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Bootloader</div><pre id="log-fastboot"></pre></aside>
+        </div>
+      </section>
+
+
+<section class="tab-panel" id="tab-agent">
+        <div class="tab-layout">
+          <div class="tab-content cards-grid">
+            <article class="card span-2">
+              <h3>Agente cliente</h3>
+              <p class="hint">En el modo normal, 9ADB necesita el agente abierto. Cuando el agente se conecta, toda la web usa la red de ese PC automáticamente.</p>
+              <div class="agent-download-row">
+                <a class="button-like primary" href="/agent/download/windows">Descargar ADB Agent Windows (.exe)</a>
+                <button id="clientAgentsRefresh" type="button" class="secondary">Actualizar estado</button>
+              </div>
+              <p class="hint admin-only-note">Modo local activo: se usa la red del servidor.</p>
+            </article>
+
+            <article class="card span-2">
+              <h3>Clientes conectados</h3>
+              <div id="clientAgentsList" class="cards-list">
+                <p class="hint">Abre el agente en el PC cliente y pulsa Actualizar estado.</p>
+              </div>
+            </article>
+          </div>
+          <div class="log-resizer" data-log-resizer title="Arrastra para ajustar el ancho del log"></div><aside class="tab-log"><div class="log-title">Log de Agente</div><pre id="log-agent"></pre></aside>
+        </div>
+      </section>
+
+
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

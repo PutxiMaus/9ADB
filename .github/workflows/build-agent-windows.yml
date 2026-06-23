@@ -1,0 +1,42 @@
+name: Build Windows Agent
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "agent/**"
+      - ".github/workflows/build-agent-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-agent:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          cd agent
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller paramiko
+          pyinstaller --onefile --noconfirm --name "ADB-Agent-Windows" --console --hidden-import paramiko adb_agent_console.py
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ADB-Agent-Windows
+          path: agent/dist/ADB-Agent-Windows.exe
+      - name: Publish agent-latest release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete agent-latest --yes --cleanup-tag 2>$null
+          gh release create agent-latest agent/dist/ADB-Agent-Windows.exe --title "ADB Agent Windows" --notes "Agente portable Windows para usar la red del cliente con ADB web."
