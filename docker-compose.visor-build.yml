@@ -1,0 +1,6 @@
+services:
+  adb-visor:
+    build:
+      context: .
+      dockerfile: Dockerfile.visor
+    image: ghcr.io/putximaus/9adb:visor

@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+README*.md
+*.zip
+/data/
+logs/
+screenshots/
+screenrecords/
+apks/
+uploads/
+files/
